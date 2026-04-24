@@ -1,0 +1,76 @@
+{
+  "courses": [
+    {
+      "id": "course-ai",
+      "name": "Artificial Intelligence",
+      "code": "CSCE 580",
+      "professor": "Dr. Calloway",
+      "cadence": "Mon/Wed 2:00 PM",
+      "syncStatus": "Blackboard sync healthy",
+      "workload": "Heavy project week",
+      "source": "Blackboard"
+    },
+    {
+      "id": "course-os",
+      "name": "Operating Systems",
+      "code": "CSCE 311",
+      "professor": "Dr. Nguyen",
+      "cadence": "Tue/Thu 11:00 AM",
+      "syncStatus": "Blackboard sync healthy",
+      "workload": "Quiz plus lab",
+      "source": "Blackboard"
+    },
+    {
+      "id": "course-se",
+      "name": "Software Engineering",
+      "code": "CSCE 490",
+      "professor": "Prof. Mason",
+      "cadence": "Mon 5:30 PM",
+      "syncStatus": "Manual course",
+      "workload": "Team milestone due",
+      "source": "Manual"
+    }
+  ],
+  "assignments": [
+    {
+      "id": "assignment-systems",
+      "title": "Distributed Systems checkpoint",
+      "courseId": "course-se",
+      "dueAt": "2026-04-24T18:00:00.000Z",
+      "priority": "High",
+      "status": "Needs review",
+      "source": "Manual",
+      "description": "Finalize implementation notes and prepare the checkpoint write-up."
+    },
+    {
+      "id": "assignment-neural",
+      "title": "Neural search lab report",
+      "courseId": "course-ai",
+      "dueAt": "2026-04-25T23:59:00.000Z",
+      "priority": "High",
+      "status": "Draft ready",
+      "source": "Blackboard",
+      "description": "Polish the results section and attach the benchmark screenshots."
+    },
+    {
+      "id": "assignment-os",
+      "title": "Operating systems quiz 8",
+      "courseId": "course-os",
+      "dueAt": "2026-04-26T16:00:00.000Z",
+      "priority": "Medium",
+      "status": "Not started",
+      "source": "Blackboard",
+      "description": "Review synchronization notes and memory scheduling topics."
+    },
+    {
+      "id": "assignment-retro",
+      "title": "Team sprint retrospective",
+      "courseId": "course-se",
+      "dueAt": "2026-04-27T13:00:00.000Z",
+      "priority": "Low",
+      "status": "Waiting on team",
+      "source": "Manual",
+      "description": "Collect meeting notes and summarize blockers for the retro."
+    }
+  ]
+}

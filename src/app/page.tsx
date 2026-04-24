@@ -1,124 +1,20 @@
-type Stat = {
-  label: string;
-  value: string;
-  detail: string;
-};
+import {
+  addAssignmentAction,
+  addCourseAction,
+  runBlackboardSyncAction,
+  updateAssignmentStatusAction,
+} from "@/app/actions";
+import { readStudyHubData } from "@/lib/store";
+import type { Assignment, AssignmentStatus, Priority } from "@/lib/types";
 
-type Assignment = {
-  title: string;
-  course: string;
-  due: string;
-  priority: "High" | "Medium" | "Low";
-  status: string;
-};
-
-type Course = {
-  name: string;
-  professor: string;
-  cadence: string;
-  workload: string;
-  sync: string;
-};
-
-type PlanBlock = {
-  day: string;
-  focus: string;
-  duration: string;
-  note: string;
-};
-
-const stats: Stat[] = [
-  {
-    label: "Assignments due this week",
-    value: "7",
-    detail: "Two are imported from Blackboard and need deep-work blocks.",
-  },
-  {
-    label: "Hours planned",
-    value: "14.5",
-    detail: "Balanced across AI, systems, and networking classes.",
-  },
-  {
-    label: "Upcoming syncs",
-    value: "3",
-    detail: "Blackboard sync runs every 30 minutes with conflict fallback.",
-  },
-];
-
-const assignments: Assignment[] = [
-  {
-    title: "Distributed Systems checkpoint",
-    course: "CSCE 590",
-    due: "Today, 6:00 PM",
-    priority: "High",
-    status: "Needs review",
-  },
-  {
-    title: "Neural search lab report",
-    course: "CSCE 580",
-    due: "Tomorrow, 11:59 PM",
-    priority: "High",
-    status: "Draft ready",
-  },
-  {
-    title: "Operating systems quiz 8",
-    course: "CSCE 311",
-    due: "Friday, 4:00 PM",
-    priority: "Medium",
-    status: "Not started",
-  },
-  {
-    title: "Team sprint retrospective",
-    course: "CSCE 490",
-    due: "Saturday, 1:00 PM",
-    priority: "Low",
-    status: "Waiting on team",
-  },
-];
-
-const courses: Course[] = [
-  {
-    name: "Artificial Intelligence",
-    professor: "Dr. Calloway",
-    cadence: "Mon/Wed 2:00 PM",
-    workload: "Heavy project week",
-    sync: "Synced 12 minutes ago",
-  },
-  {
-    name: "Operating Systems",
-    professor: "Dr. Nguyen",
-    cadence: "Tue/Thu 11:00 AM",
-    workload: "Quiz plus lab",
-    sync: "Synced 12 minutes ago",
-  },
-  {
-    name: "Software Engineering",
-    professor: "Prof. Mason",
-    cadence: "Mon 5:30 PM",
-    workload: "Team milestone due",
-    sync: "Manual course",
-  },
-];
-
-const plan: PlanBlock[] = [
-  {
-    day: "Tonight",
-    focus: "Finish distributed systems checkpoint",
-    duration: "2h 15m",
-    note: "AI planner grouped the reading and implementation together.",
-  },
-  {
-    day: "Thursday",
-    focus: "Polish neural search report and submit OS quiz",
-    duration: "3h 30m",
-    note: "Best fit before the Friday class cluster.",
-  },
-  {
-    day: "Friday",
-    focus: "Sprint retro prep and Blackboard catch-up review",
-    duration: "1h 45m",
-    note: "Reserved buffer in case synced deadlines change.",
-  },
+const priorities: Priority[] = ["High", "Medium", "Low"];
+const statuses: AssignmentStatus[] = [
+  "Not started",
+  "In progress",
+  "Needs review",
+  "Submitted",
+  "Waiting on team",
+  "Draft ready",
 ];
 
 function badgeClasses(priority: Assignment["priority"]) {
@@ -133,7 +29,59 @@ function badgeClasses(priority: Assignment["priority"]) {
   return "bg-emerald-100 text-emerald-700 ring-emerald-200";
 }
 
-export default function Home() {
+function dueLabel(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function hoursPlanned(assignments: Assignment[]) {
+  return (
+    assignments.reduce((sum, assignment) => {
+      if (assignment.priority === "High") {
+        return sum + 2.5;
+      }
+
+      if (assignment.priority === "Medium") {
+        return sum + 1.5;
+      }
+
+      return sum + 1;
+    }, 0) / 1
+  ).toFixed(1);
+}
+
+export default async function Home() {
+  const data = await readStudyHubData();
+
+  const assignments = [...data.assignments].sort((a, b) =>
+    a.dueAt.localeCompare(b.dueAt),
+  );
+  const courses = data.courses;
+  const courseMap = new Map(courses.map((course) => [course.id, course]));
+  const blackboardCourses = courses.filter((course) => course.source === "Blackboard");
+  const urgentAssignments = assignments.filter(
+    (assignment) => assignment.status !== "Submitted",
+  );
+
+  const plan = urgentAssignments.slice(0, 3).map((assignment, index) => ({
+    day: index === 0 ? "Today" : index === 1 ? "Next up" : "After that",
+    focus: assignment.title,
+    duration:
+      assignment.priority === "High"
+        ? "2h 30m"
+        : assignment.priority === "Medium"
+          ? "1h 30m"
+          : "1h 00m",
+    note:
+      assignment.description ||
+      "Review the assignment requirements and block focused work time.",
+  }));
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#fef3c7_0%,#fff8eb_25%,#f7f5ef_60%,#eef4ff_100%)] text-slate-900">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-5 py-8 sm:px-8 lg:px-10">
@@ -145,30 +93,34 @@ export default function Home() {
                 <span className="text-slate-300">LMS-integrated planning</span>
               </div>
               <div className="space-y-4">
-                <h1 className="max-w-3xl font-sans text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
+                <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
                   Blackboard-connected planning for students who need one clear
                   dashboard.
                 </h1>
                 <p className="max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
-                  StudyHub pulls course deadlines, highlights urgent work,
-                  generates AI study plans, and keeps a manual fallback so the
-                  workflow stays reliable when LMS data changes.
+                  Track real assignments, add manual tasks, and shape weekly
+                  study plans around deadlines instead of scattered LMS pages.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
-                <button className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
-                  Connect Blackboard
-                </button>
-                <button className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-950 hover:text-slate-950">
+                <form action={runBlackboardSyncAction}>
+                  <button className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
+                    Run Blackboard sync
+                  </button>
+                </form>
+                <a
+                  href="#planner"
+                  className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-950 hover:text-slate-950"
+                >
                   View weekly plan
-                </button>
+                </a>
               </div>
             </div>
 
             <div className="rounded-[1.75rem] bg-slate-950 p-5 text-white shadow-inner">
               <div className="flex items-center justify-between text-sm text-slate-300">
-                <span>AI workload summary</span>
-                <span>Updated 8:42 AM</span>
+                <span>Live workload summary</span>
+                <span>{courses.length} active courses</span>
               </div>
               <div className="mt-5 space-y-4">
                 <div className="rounded-2xl bg-white/8 p-4">
@@ -176,34 +128,49 @@ export default function Home() {
                     Recommended today
                   </p>
                   <p className="mt-2 text-2xl font-semibold">
-                    3 focused blocks
+                    {urgentAssignments.slice(0, 3).length} focused blocks
                   </p>
                   <p className="mt-2 text-sm leading-6 text-slate-300">
-                    Finish the systems checkpoint first, then close the AI lab
-                    report while the source material is still fresh.
+                    Prioritize the earliest due items, then use manual tasks to
+                    fill study gaps between synced deadlines.
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-                  {stats.map((stat) => (
-                    <article
-                      key={stat.label}
-                      className="rounded-2xl border border-white/10 bg-white/5 p-4"
-                    >
-                      <p className="text-sm text-slate-300">{stat.label}</p>
-                      <p className="mt-2 text-3xl font-semibold">{stat.value}</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-400">
-                        {stat.detail}
-                      </p>
-                    </article>
-                  ))}
+                  <article className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <p className="text-sm text-slate-300">Assignments due soon</p>
+                    <p className="mt-2 text-3xl font-semibold">
+                      {urgentAssignments.length}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                      Open work across synced Blackboard tasks and manual items.
+                    </p>
+                  </article>
+                  <article className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <p className="text-sm text-slate-300">Hours planned</p>
+                    <p className="mt-2 text-3xl font-semibold">
+                      {hoursPlanned(urgentAssignments)}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                      Estimated from priority weightings in the MVP planner.
+                    </p>
+                  </article>
+                  <article className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <p className="text-sm text-slate-300">Blackboard courses</p>
+                    <p className="mt-2 text-3xl font-semibold">
+                      {blackboardCourses.length}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                      Imported course shells with manual fallback editing.
+                    </p>
+                  </article>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
-          <div className="space-y-6">
+        <section className="grid gap-6 xl:grid-cols-[1.25fr_0.9fr_0.95fr]">
+          <div className="space-y-6 xl:col-span-2">
             <div className="rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-6 shadow-[0_18px_50px_rgba(148,163,184,0.16)]">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
@@ -211,47 +178,83 @@ export default function Home() {
                     Priority queue
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                    Assignments that need attention this week
+                    Assignments that need attention
                   </h2>
                 </div>
                 <p className="text-sm text-slate-500">
-                  Imported from Blackboard plus manual tasks
+                  Persisted in the StudyHub MVP store
                 </p>
               </div>
 
               <div className="mt-6 space-y-4">
-                {assignments.map((assignment) => (
-                  <article
-                    key={assignment.title}
-                    className="rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-5 transition hover:border-slate-300 hover:bg-white"
-                  >
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-lg font-semibold text-slate-950">
-                            {assignment.title}
-                          </h3>
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${badgeClasses(
-                              assignment.priority,
-                            )}`}
-                          >
-                            {assignment.priority}
-                          </span>
+                {assignments.map((assignment) => {
+                  const course = courseMap.get(assignment.courseId);
+
+                  return (
+                    <article
+                      key={assignment.id}
+                      className="rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-5 transition hover:border-slate-300 hover:bg-white"
+                    >
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-lg font-semibold text-slate-950">
+                              {assignment.title}
+                            </h3>
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${badgeClasses(
+                                assignment.priority,
+                              )}`}
+                            >
+                              {assignment.priority}
+                            </span>
+                            <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">
+                              {assignment.source}
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-500">
+                            {course?.code} · {course?.name}
+                          </p>
+                          <p className="max-w-2xl text-sm leading-6 text-slate-600">
+                            {assignment.description}
+                          </p>
                         </div>
-                        <p className="text-sm text-slate-500">
-                          {assignment.course}
-                        </p>
+                        <div className="space-y-3 lg:min-w-56">
+                          <div className="text-sm text-slate-600 lg:text-right">
+                            <p className="font-semibold text-slate-800">
+                              {dueLabel(assignment.dueAt)}
+                            </p>
+                            <p>{assignment.status}</p>
+                          </div>
+                          <form
+                            action={updateAssignmentStatusAction}
+                            className="flex flex-col gap-2"
+                          >
+                            <input
+                              type="hidden"
+                              name="assignmentId"
+                              value={assignment.id}
+                            />
+                            <select
+                              name="status"
+                              defaultValue={assignment.status}
+                              className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-950"
+                            >
+                              {statuses.map((status) => (
+                                <option key={status} value={status}>
+                                  {status}
+                                </option>
+                              ))}
+                            </select>
+                            <button className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800">
+                              Update status
+                            </button>
+                          </form>
+                        </div>
                       </div>
-                      <div className="text-sm text-slate-600 sm:text-right">
-                        <p className="font-semibold text-slate-800">
-                          {assignment.due}
-                        </p>
-                        <p>{assignment.status}</p>
-                      </div>
-                    </div>
-                  </article>
-                ))}
+                    </article>
+                  );
+                })}
               </div>
             </div>
 
@@ -262,30 +265,31 @@ export default function Home() {
                     Course sync
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                    Blackboard-linked courses
+                    Active courses
                   </h2>
                 </div>
                 <p className="text-sm text-slate-500">
-                  Manual fallback keeps edits safe
+                  Blackboard-ready plus manual additions
                 </p>
               </div>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {courses.map((course) => (
                   <article
-                    key={course.name}
+                    key={course.id}
                     className="rounded-[1.5rem] bg-slate-950 p-5 text-white"
                   >
                     <p className="text-xs uppercase tracking-[0.18em] text-amber-200">
-                      {course.sync}
+                      {course.syncStatus}
                     </p>
                     <h3 className="mt-3 text-xl font-semibold">{course.name}</h3>
                     <p className="mt-2 text-sm text-slate-300">
-                      {course.professor}
+                      {course.code} · {course.professor}
                     </p>
                     <div className="mt-5 space-y-2 text-sm text-slate-200">
                       <p>{course.cadence}</p>
                       <p>{course.workload}</p>
+                      <p>Source: {course.source}</p>
                     </div>
                   </article>
                 ))}
@@ -294,17 +298,20 @@ export default function Home() {
           </div>
 
           <div className="space-y-6">
-            <section className="rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-6 shadow-[0_18px_50px_rgba(148,163,184,0.16)]">
+            <section
+              id="planner"
+              className="rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-6 shadow-[0_18px_50px_rgba(148,163,184,0.16)]"
+            >
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-500">
                 Weekly plan
               </p>
               <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                AI-generated study blocks
+                AI-style study blocks
               </h2>
               <div className="mt-6 space-y-4">
                 {plan.map((item) => (
                   <article
-                    key={item.day}
+                    key={`${item.day}-${item.focus}`}
                     className="rounded-[1.5rem] bg-gradient-to-br from-amber-100 via-white to-sky-100 p-4"
                   >
                     <div className="flex items-center justify-between gap-3">
@@ -328,17 +335,117 @@ export default function Home() {
 
             <section className="rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-6 shadow-[0_18px_50px_rgba(148,163,184,0.16)]">
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-500">
-                MVP scope
+                Add course
               </p>
               <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                What this first build covers
+                Manual course fallback
               </h2>
-              <ul className="mt-5 space-y-3 text-sm leading-6 text-slate-600">
-                <li>Course dashboard with synced and manual assignment flows</li>
-                <li>Priority queue driven by due dates, urgency, and workload</li>
-                <li>AI planner for weekly schedules and assignment summaries</li>
-                <li>LMS-ready import architecture for Blackboard integration</li>
-              </ul>
+              <form action={addCourseAction} className="mt-5 space-y-3">
+                <input
+                  name="name"
+                  placeholder="Course name"
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-950"
+                />
+                <input
+                  name="code"
+                  placeholder="Course code"
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-950"
+                />
+                <input
+                  name="professor"
+                  placeholder="Professor"
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-950"
+                />
+                <input
+                  name="cadence"
+                  placeholder="Meeting cadence"
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-950"
+                />
+                <input
+                  name="workload"
+                  placeholder="Current workload"
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-950"
+                />
+                <button className="w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
+                  Save course
+                </button>
+              </form>
+            </section>
+
+            <section className="rounded-[1.75rem] border border-slate-200/70 bg-white/85 p-6 shadow-[0_18px_50px_rgba(148,163,184,0.16)]">
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-500">
+                Add assignment
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                Capture work outside Blackboard
+              </h2>
+              <form action={addAssignmentAction} className="mt-5 space-y-3">
+                <input
+                  name="title"
+                  placeholder="Assignment title"
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-950"
+                />
+                <select
+                  name="courseId"
+                  defaultValue=""
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-950"
+                >
+                  <option value="" disabled>
+                    Select course
+                  </option>
+                  {courses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.code} · {course.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <input
+                    type="date"
+                    name="dueDate"
+                    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-950"
+                  />
+                  <input
+                    type="time"
+                    name="dueTime"
+                    defaultValue="23:59"
+                    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-950"
+                  />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <select
+                    name="priority"
+                    defaultValue="Medium"
+                    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-950"
+                  >
+                    {priorities.map((priority) => (
+                      <option key={priority} value={priority}>
+                        {priority}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    name="status"
+                    defaultValue="Not started"
+                    className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-950"
+                  >
+                    {statuses.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <textarea
+                  name="description"
+                  placeholder="Short description"
+                  rows={4}
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-950"
+                />
+                <button className="w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
+                  Save assignment
+                </button>
+              </form>
             </section>
           </div>
         </section>
