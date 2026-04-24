@@ -11,6 +11,7 @@ import type {
   StudyHubData,
   User,
 } from "@/lib/types";
+import type { BlackboardImportPayload } from "@/lib/lms";
 
 const dataPath = path.join(process.cwd(), "data", "studyhub.json");
 const authPath = path.join(process.cwd(), "data", "auth.json");
@@ -70,6 +71,7 @@ export async function createJsonCourse(input: {
     workload: input.workload,
     source: "Manual",
     syncStatus: "Manual course",
+    externalId: undefined,
   };
 
   data.courses.unshift(course);
@@ -96,6 +98,7 @@ export async function createJsonAssignment(input: {
     status: input.status,
     description: input.description,
     source: "Manual",
+    externalId: undefined,
   };
 
   data.assignments.unshift(assignment);
@@ -222,6 +225,94 @@ export async function markJsonBlackboardSync(userId: string) {
         }
       : course,
   );
+
+  await writeStudyHubData(data);
+}
+
+export async function importJsonBlackboardData(
+  userId: string,
+  payload: BlackboardImportPayload,
+) {
+  const data = await readJsonStudyHubData();
+  const prefix = inputPrefix(userId);
+  const syncStamp = `Blackboard sync checked ${new Date().toLocaleTimeString(
+    "en-US",
+    {
+      hour: "numeric",
+      minute: "2-digit",
+    },
+  )}`;
+
+  for (const importedCourse of payload.courses) {
+    const existingCourseIndex = data.courses.findIndex(
+      (course) =>
+        course.id.startsWith(prefix) &&
+        course.source === "Blackboard" &&
+        course.externalId === importedCourse.externalId,
+    );
+
+    const nextCourse: Course = {
+      id:
+        existingCourseIndex >= 0
+          ? data.courses[existingCourseIndex].id
+          : `${prefix}course-${importedCourse.externalId}`,
+      name: importedCourse.name,
+      code: importedCourse.code,
+      professor: importedCourse.professor,
+      cadence: importedCourse.cadence,
+      workload: importedCourse.workload,
+      syncStatus: syncStamp,
+      source: "Blackboard",
+      externalId: importedCourse.externalId,
+    };
+
+    if (existingCourseIndex >= 0) {
+      data.courses[existingCourseIndex] = nextCourse;
+    } else {
+      data.courses.unshift(nextCourse);
+    }
+  }
+
+  for (const importedAssignment of payload.assignments) {
+    const mappedCourse = data.courses.find(
+      (course) =>
+        course.id.startsWith(prefix) &&
+        course.source === "Blackboard" &&
+        course.externalId === importedAssignment.courseExternalId,
+    );
+
+    if (!mappedCourse) {
+      continue;
+    }
+
+    const existingAssignmentIndex = data.assignments.findIndex(
+      (assignment) =>
+        assignment.id.startsWith(prefix) &&
+        assignment.source === "Blackboard" &&
+        assignment.externalId === importedAssignment.externalId,
+    );
+
+    const nextAssignment: Assignment = {
+      id:
+        existingAssignmentIndex >= 0
+          ? data.assignments[existingAssignmentIndex].id
+          : `${prefix}assignment-${importedAssignment.externalId}`,
+      title: importedAssignment.title,
+      courseId: mappedCourse.id,
+      dueAt: importedAssignment.dueAt,
+      priority: importedAssignment.priority,
+      status: importedAssignment.status,
+      source: "Blackboard",
+      description: importedAssignment.description,
+      externalId: importedAssignment.externalId,
+    };
+
+    if (existingAssignmentIndex >= 0) {
+      data.assignments[existingAssignmentIndex] = nextAssignment;
+    } else {
+      data.assignments.unshift(nextAssignment);
+    }
+  }
 
   await writeStudyHubData(data);
 }

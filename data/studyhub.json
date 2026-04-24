@@ -8,7 +8,8 @@
       "cadence": "Mon/Wed 2:00 PM",
       "syncStatus": "Blackboard sync healthy",
       "workload": "Heavy project week",
-      "source": "Blackboard"
+      "source": "Blackboard",
+      "externalId": "bb-ai-580"
     },
     {
       "id": "course-os",
@@ -18,7 +19,8 @@
       "cadence": "Tue/Thu 11:00 AM",
       "syncStatus": "Blackboard sync healthy",
       "workload": "Quiz plus lab",
-      "source": "Blackboard"
+      "source": "Blackboard",
+      "externalId": "bb-os-311"
     },
     {
       "id": "course-se",
@@ -50,7 +52,8 @@
       "priority": "High",
       "status": "Draft ready",
       "source": "Blackboard",
-      "description": "Polish the results section and attach the benchmark screenshots."
+      "description": "Polish the results section and attach the benchmark screenshots.",
+      "externalId": "bb-neural-report"
     },
     {
       "id": "assignment-os",
@@ -60,7 +63,8 @@
       "priority": "Medium",
       "status": "Not started",
       "source": "Blackboard",
-      "description": "Review synchronization notes and memory scheduling topics."
+      "description": "Review synchronization notes and memory scheduling topics.",
+      "externalId": "bb-os-quiz-8"
     },
     {
       "id": "assignment-retro",

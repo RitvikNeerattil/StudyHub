@@ -1,0 +1,49 @@
+{
+  "courses": [
+    {
+      "externalId": "bb-ai-580",
+      "name": "Artificial Intelligence",
+      "code": "CSCE 580",
+      "professor": "Dr. Calloway",
+      "cadence": "Mon/Wed 2:00 PM",
+      "workload": "Heavy project week"
+    },
+    {
+      "externalId": "bb-os-311",
+      "name": "Operating Systems",
+      "code": "CSCE 311",
+      "professor": "Dr. Nguyen",
+      "cadence": "Tue/Thu 11:00 AM",
+      "workload": "Quiz plus lab"
+    }
+  ],
+  "assignments": [
+    {
+      "externalId": "bb-neural-report",
+      "courseExternalId": "bb-ai-580",
+      "title": "Neural search lab report",
+      "dueAt": "2026-04-25T23:59:00.000Z",
+      "priority": "High",
+      "status": "Draft ready",
+      "description": "Polish the results section and attach the benchmark screenshots."
+    },
+    {
+      "externalId": "bb-os-quiz-8",
+      "courseExternalId": "bb-os-311",
+      "title": "Operating systems quiz 8",
+      "dueAt": "2026-04-26T16:00:00.000Z",
+      "priority": "Medium",
+      "status": "Not started",
+      "description": "Review synchronization notes and memory scheduling topics."
+    },
+    {
+      "externalId": "bb-ai-discussion-4",
+      "courseExternalId": "bb-ai-580",
+      "title": "AI discussion post 4",
+      "dueAt": "2026-04-28T18:30:00.000Z",
+      "priority": "Low",
+      "status": "Not started",
+      "description": "Post a short reflection on heuristic search tradeoffs."
+    }
+  ]
+}

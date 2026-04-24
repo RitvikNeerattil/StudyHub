@@ -19,6 +19,7 @@ export type Course = {
   syncStatus: string;
   workload: string;
   source: CourseSource;
+  externalId?: string;
 };
 
 export type Assignment = {
@@ -30,6 +31,7 @@ export type Assignment = {
   status: AssignmentStatus;
   source: CourseSource;
   description: string;
+  externalId?: string;
 };
 
 export type StudyHubData = {

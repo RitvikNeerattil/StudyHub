@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getCurrentUser, signInUser, signOutUser, signUpUser } from "@/lib/auth";
+import { loadMockBlackboardPayload } from "@/lib/lms";
 import {
   createAssignment,
   createCourse,
+  importBlackboardData,
   markBlackboardSync,
   updateAssignmentStatus,
 } from "@/lib/store";
@@ -101,6 +103,8 @@ export async function runBlackboardSyncAction() {
     redirect("/?authError=Please%20sign%20in%20again.");
   }
 
+  const payload = await loadMockBlackboardPayload(user.name);
+  await importBlackboardData(user.id, payload);
   await markBlackboardSync(user.id);
   revalidatePath("/");
 }

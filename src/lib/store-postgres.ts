@@ -1,4 +1,5 @@
 import { getPool } from "@/lib/db";
+import type { BlackboardImportPayload } from "@/lib/lms";
 import type {
   Assignment,
   AssignmentStatus,
@@ -24,6 +25,7 @@ function mapCourse(row: {
   sync_status: string;
   workload: string;
   source: string;
+  external_id: string | null;
 }): Course {
   return {
     id: row.id,
@@ -34,6 +36,7 @@ function mapCourse(row: {
     syncStatus: row.sync_status,
     workload: row.workload,
     source: row.source as Course["source"],
+    externalId: row.external_id ?? undefined,
   };
 }
 
@@ -46,6 +49,7 @@ function mapAssignment(row: {
   status: string;
   source: string;
   description: string;
+  external_id: string | null;
 }): Assignment {
   return {
     id: row.id,
@@ -57,6 +61,7 @@ function mapAssignment(row: {
     status: row.status as AssignmentStatus,
     source: row.source as Assignment["source"],
     description: row.description,
+    externalId: row.external_id ?? undefined,
   };
 }
 
@@ -96,7 +101,8 @@ export async function ensureDatabase() {
       cadence TEXT NOT NULL,
       sync_status TEXT NOT NULL,
       workload TEXT NOT NULL,
-      source TEXT NOT NULL CHECK (source IN ('Blackboard', 'Manual'))
+      source TEXT NOT NULL CHECK (source IN ('Blackboard', 'Manual')),
+      external_id TEXT
     );
   `);
 
@@ -119,7 +125,8 @@ export async function ensureDatabase() {
         )
       ),
       source TEXT NOT NULL CHECK (source IN ('Blackboard', 'Manual')),
-      description TEXT NOT NULL DEFAULT ''
+      description TEXT NOT NULL DEFAULT '',
+      external_id TEXT
     );
   `);
 
@@ -129,8 +136,18 @@ export async function ensureDatabase() {
   `);
 
   await pool.query(`
+    ALTER TABLE courses
+    ADD COLUMN IF NOT EXISTS external_id TEXT;
+  `);
+
+  await pool.query(`
     ALTER TABLE assignments
     ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE CASCADE;
+  `);
+
+  await pool.query(`
+    ALTER TABLE assignments
+    ADD COLUMN IF NOT EXISTS external_id TEXT;
   `);
 
   initialized = true;
@@ -144,6 +161,7 @@ export async function readPostgresStudyHubData(userId: string): Promise<StudyHub
     pool.query(
       `
       SELECT id, name, code, professor, cadence, sync_status, workload, source
+      , external_id
       FROM courses
       WHERE user_id = $1
       ORDER BY name ASC
@@ -153,6 +171,7 @@ export async function readPostgresStudyHubData(userId: string): Promise<StudyHub
     pool.query(
       `
       SELECT id, title, course_id, due_at, priority, status, source, description
+      , external_id
       FROM assignments
       WHERE user_id = $1
       ORDER BY due_at ASC
@@ -181,9 +200,9 @@ export async function createPostgresCourse(input: {
   await pool.query(
     `
       INSERT INTO courses (
-        id, user_id, name, code, professor, cadence, sync_status, workload, source
+        id, user_id, name, code, professor, cadence, sync_status, workload, source, external_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Manual')
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Manual', NULL)
     `,
     [
       createId("course"),
@@ -213,9 +232,9 @@ export async function createPostgresAssignment(input: {
   await pool.query(
     `
       INSERT INTO assignments (
-        id, user_id, title, course_id, due_at, priority, status, source, description
+        id, user_id, title, course_id, due_at, priority, status, source, description, external_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'Manual', $8)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'Manual', $8, NULL)
     `,
     [
       createId("assignment"),
@@ -309,9 +328,9 @@ export async function createPostgresUserRecord(user: User, seed: StudyHubData) {
     await pool.query(
       `
         INSERT INTO courses (
-          id, user_id, name, code, professor, cadence, sync_status, workload, source
+          id, user_id, name, code, professor, cadence, sync_status, workload, source, external_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       `,
       [
         `${user.id}-${course.id}`,
@@ -323,6 +342,7 @@ export async function createPostgresUserRecord(user: User, seed: StudyHubData) {
         course.syncStatus,
         course.workload,
         course.source,
+        course.externalId ?? null,
       ],
     );
   }
@@ -331,9 +351,9 @@ export async function createPostgresUserRecord(user: User, seed: StudyHubData) {
     await pool.query(
       `
         INSERT INTO assignments (
-          id, user_id, title, course_id, due_at, priority, status, source, description
+          id, user_id, title, course_id, due_at, priority, status, source, description, external_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       `,
       [
         `${user.id}-${assignment.id}`,
@@ -345,6 +365,7 @@ export async function createPostgresUserRecord(user: User, seed: StudyHubData) {
         assignment.status,
         assignment.source,
         assignment.description,
+        assignment.externalId ?? null,
       ],
     );
   }
@@ -400,4 +421,81 @@ export async function findPostgresSessionUser(token: string) {
         ? row.created_at.toISOString()
         : String(row.created_at),
   } satisfies User;
+}
+
+export async function importPostgresBlackboardData(
+  userId: string,
+  payload: BlackboardImportPayload,
+) {
+  await ensureDatabase();
+  const pool = getPool();
+  const syncStamp = `Blackboard sync checked ${new Date().toLocaleTimeString(
+    "en-US",
+    {
+      hour: "numeric",
+      minute: "2-digit",
+    },
+  )}`;
+
+  for (const course of payload.courses) {
+    await pool.query(
+      `
+        INSERT INTO courses (
+          id, user_id, name, code, professor, cadence, sync_status, workload, source, external_id
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Blackboard', $9)
+        ON CONFLICT (id) DO UPDATE SET
+          name = EXCLUDED.name,
+          code = EXCLUDED.code,
+          professor = EXCLUDED.professor,
+          cadence = EXCLUDED.cadence,
+          sync_status = EXCLUDED.sync_status,
+          workload = EXCLUDED.workload,
+          source = EXCLUDED.source,
+          external_id = EXCLUDED.external_id
+      `,
+      [
+        `${userId}-course-${course.externalId}`,
+        userId,
+        course.name,
+        course.code,
+        course.professor,
+        course.cadence,
+        syncStamp,
+        course.workload,
+        course.externalId,
+      ],
+    );
+  }
+
+  for (const assignment of payload.assignments) {
+    await pool.query(
+      `
+        INSERT INTO assignments (
+          id, user_id, title, course_id, due_at, priority, status, source, description, external_id
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'Blackboard', $8, $9)
+        ON CONFLICT (id) DO UPDATE SET
+          title = EXCLUDED.title,
+          course_id = EXCLUDED.course_id,
+          due_at = EXCLUDED.due_at,
+          priority = EXCLUDED.priority,
+          status = EXCLUDED.status,
+          source = EXCLUDED.source,
+          description = EXCLUDED.description,
+          external_id = EXCLUDED.external_id
+      `,
+      [
+        `${userId}-assignment-${assignment.externalId}`,
+        userId,
+        assignment.title,
+        `${userId}-course-${assignment.courseExternalId}`,
+        assignment.dueAt,
+        assignment.priority,
+        assignment.status,
+        assignment.description,
+        assignment.externalId,
+      ],
+    );
+  }
 }

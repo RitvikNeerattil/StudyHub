@@ -6,6 +6,7 @@ import {
   deleteJsonSessionRecord,
   findJsonSessionUser,
   findJsonUserByEmail,
+  importJsonBlackboardData,
   markJsonBlackboardSync,
   readJsonStudyHubData,
   readJsonStudyHubDataForUser,
@@ -19,11 +20,13 @@ import {
   deletePostgresSessionRecord,
   findPostgresSessionUser,
   findPostgresUserByEmail,
+  importPostgresBlackboardData,
   markPostgresBlackboardSync,
   readPostgresStudyHubData,
   updatePostgresAssignmentStatus,
   upsertPostgresSessionRecord,
 } from "@/lib/store-postgres";
+import type { BlackboardImportPayload } from "@/lib/lms";
 import type {
   AssignmentStatus,
   Priority,
@@ -97,6 +100,17 @@ export async function markBlackboardSync(userId: string) {
   }
 
   return markJsonBlackboardSync(userId);
+}
+
+export async function importBlackboardData(
+  userId: string,
+  payload: BlackboardImportPayload,
+) {
+  if (shouldUsePostgres()) {
+    return importPostgresBlackboardData(userId, payload);
+  }
+
+  return importJsonBlackboardData(userId, payload);
 }
 
 export async function findUserByEmail(email: string) {
