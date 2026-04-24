@@ -36,3 +36,23 @@ export type StudyHubData = {
   courses: Course[];
   assignments: Assignment[];
 };
+
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  passwordHash: string;
+  createdAt: string;
+};
+
+export type Session = {
+  id: string;
+  userId: string;
+  token: string;
+  expiresAt: string;
+};
+
+export type AuthStore = {
+  users: User[];
+  sessions: Session[];
+};

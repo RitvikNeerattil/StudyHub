@@ -2,8 +2,13 @@ import {
   addAssignmentAction,
   addCourseAction,
   runBlackboardSyncAction,
+  signInAction,
+  signOutAction,
+  signUpAction,
   updateAssignmentStatusAction,
 } from "@/app/actions";
+import { AuthPanel } from "@/components/auth-panel";
+import { getCurrentUser } from "@/lib/auth";
 import { readStudyHubData } from "@/lib/store";
 import type { Assignment, AssignmentStatus, Priority } from "@/lib/types";
 
@@ -40,8 +45,8 @@ function dueLabel(value: string) {
 }
 
 function hoursPlanned(assignments: Assignment[]) {
-  return (
-    assignments.reduce((sum, assignment) => {
+  return assignments
+    .reduce((sum, assignment) => {
       if (assignment.priority === "High") {
         return sum + 2.5;
       }
@@ -51,19 +56,36 @@ function hoursPlanned(assignments: Assignment[]) {
       }
 
       return sum + 1;
-    }, 0) / 1
-  ).toFixed(1);
+    }, 0)
+    .toFixed(1);
 }
 
-export default async function Home() {
-  const data = await readStudyHubData();
+export default async function Home(props: {
+  searchParams?: Promise<{ authError?: string }>;
+}) {
+  const user = await getCurrentUser();
+  const searchParams = props.searchParams ? await props.searchParams : undefined;
+  const authError = searchParams?.authError;
 
+  if (!user) {
+    return (
+      <AuthPanel
+        signInAction={signInAction}
+        signUpAction={signUpAction}
+        error={authError}
+      />
+    );
+  }
+
+  const data = await readStudyHubData(user.id);
   const assignments = [...data.assignments].sort((a, b) =>
     a.dueAt.localeCompare(b.dueAt),
   );
   const courses = data.courses;
   const courseMap = new Map(courses.map((course) => [course.id, course]));
-  const blackboardCourses = courses.filter((course) => course.source === "Blackboard");
+  const blackboardCourses = courses.filter(
+    (course) => course.source === "Blackboard",
+  );
   const urgentAssignments = assignments.filter(
     (assignment) => assignment.status !== "Submitted",
   );
@@ -90,16 +112,15 @@ export default async function Home() {
             <div className="space-y-6">
               <div className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-amber-200">
                 StudyHub
-                <span className="text-slate-300">LMS-integrated planning</span>
+                <span className="text-slate-300">Private semester dashboard</span>
               </div>
               <div className="space-y-4">
                 <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
-                  Blackboard-connected planning for students who need one clear
-                  dashboard.
+                  Welcome back, {user.name.split(" ")[0]}.
                 </h1>
                 <p className="max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
-                  Track real assignments, add manual tasks, and shape weekly
-                  study plans around deadlines instead of scattered LMS pages.
+                  Your assignments, courses, and sync activity are scoped to your
+                  account. Use manual fallback when Blackboard data is incomplete.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -114,6 +135,11 @@ export default async function Home() {
                 >
                   View weekly plan
                 </a>
+                <form action={signOutAction}>
+                  <button className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-950 hover:text-slate-950">
+                    Sign out
+                  </button>
+                </form>
               </div>
             </div>
 
@@ -181,9 +207,7 @@ export default async function Home() {
                     Assignments that need attention
                   </h2>
                 </div>
-                <p className="text-sm text-slate-500">
-                  Persisted in the StudyHub MVP store
-                </p>
+                <p className="text-sm text-slate-500">Scoped to {user.email}</p>
               </div>
 
               <div className="mt-6 space-y-4">

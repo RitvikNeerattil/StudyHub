@@ -7,6 +7,8 @@ assignments, deadlines, and AI-generated study planning.
 
 - Blackboard-ready dashboard for courses and assignment sync
 - Persistent course and assignment data stored in Postgres or local JSON
+- Account creation, sign-in, and cookie-based sessions
+- User-scoped courses and assignments
 - Server actions for adding courses, adding assignments, and updating status
 - Manual fallback workflow for assignments and deadlines
 - Priority queue for urgent work
@@ -36,13 +38,15 @@ If `DATABASE_URL` is set, the app:
 
 - connects to PostgreSQL
 - creates the required tables automatically
-- seeds the database from `data/studyhub.json` if the database is empty
+- creates user, session, course, and assignment tables automatically
+- seeds each new account from `data/studyhub.json`
 
 Copy `.env.example` to `.env.local` and update the connection string to test Postgres locally.
 
 ## Current architecture
 
 - App Router server-rendered dashboard
+- Cookie session auth in `src/lib/auth.ts`
 - Storage switch in `src/lib/store.ts`
 - JSON adapter in `src/lib/store-json.ts`
 - PostgreSQL adapter in `src/lib/store-postgres.ts`
@@ -58,7 +62,7 @@ Copy `.env.example` to `.env.local` and update the connection string to test Pos
 
 ## Next build steps
 
-- Add authentication
 - Add route handlers for LMS sync and manual assignment CRUD
+- Scope LMS imports to the signed-in user
 - Wire AI planning to OpenAI or Gemini
 - Add background jobs for scheduled Blackboard imports

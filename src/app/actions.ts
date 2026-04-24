@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
+import { getCurrentUser, signInUser, signOutUser, signUpUser } from "@/lib/auth";
 import {
   createAssignment,
   createCourse,
@@ -15,6 +17,12 @@ function getString(formData: FormData, key: string) {
 }
 
 export async function addCourseAction(formData: FormData) {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect("/?authError=Please%20sign%20in%20again.");
+  }
+
   const name = getString(formData, "name");
   const code = getString(formData, "code");
   const professor = getString(formData, "professor");
@@ -25,11 +33,24 @@ export async function addCourseAction(formData: FormData) {
     return;
   }
 
-  await createCourse({ name, code, professor, cadence, workload });
+  await createCourse({
+    userId: user.id,
+    name,
+    code,
+    professor,
+    cadence,
+    workload,
+  });
   revalidatePath("/");
 }
 
 export async function addAssignmentAction(formData: FormData) {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect("/?authError=Please%20sign%20in%20again.");
+  }
+
   const title = getString(formData, "title");
   const courseId = getString(formData, "courseId");
   const dueDate = getString(formData, "dueDate");
@@ -44,6 +65,7 @@ export async function addAssignmentAction(formData: FormData) {
 
   const dueAt = new Date(`${dueDate}T${dueTime}:00`).toISOString();
   await createAssignment({
+    userId: user.id,
     title,
     courseId,
     dueAt,
@@ -55,6 +77,12 @@ export async function addAssignmentAction(formData: FormData) {
 }
 
 export async function updateAssignmentStatusAction(formData: FormData) {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect("/?authError=Please%20sign%20in%20again.");
+  }
+
   const assignmentId = getString(formData, "assignmentId");
   const status = getString(formData, "status") as AssignmentStatus;
 
@@ -62,11 +90,62 @@ export async function updateAssignmentStatusAction(formData: FormData) {
     return;
   }
 
-  await updateAssignmentStatus(assignmentId, status);
+  await updateAssignmentStatus(user.id, assignmentId, status);
   revalidatePath("/");
 }
 
 export async function runBlackboardSyncAction() {
-  await markBlackboardSync();
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect("/?authError=Please%20sign%20in%20again.");
+  }
+
+  await markBlackboardSync(user.id);
   revalidatePath("/");
+}
+
+export async function signUpAction(formData: FormData) {
+  const name = getString(formData, "name");
+  const email = getString(formData, "email");
+  const password = getString(formData, "password");
+
+  if (!name || !email || password.length < 8) {
+    redirect(
+      "/?authError=Use%20a%20name,%20valid%20email,%20and%20password%20with%20at%20least%208%20characters.",
+    );
+  }
+
+  const result = await signUpUser({ name, email, password });
+
+  if (result.error) {
+    redirect(`/?authError=${encodeURIComponent(result.error)}`);
+  }
+
+  revalidatePath("/");
+  redirect("/");
+}
+
+export async function signInAction(formData: FormData) {
+  const email = getString(formData, "email");
+  const password = getString(formData, "password");
+
+  if (!email || !password) {
+    redirect("/?authError=Enter%20your%20email%20and%20password.");
+  }
+
+  const result = await signInUser({ email, password });
+
+  if (result.error) {
+    redirect(`/?authError=${encodeURIComponent(result.error)}`);
+  }
+
+  revalidatePath("/");
+  redirect("/");
+}
+
+export async function signOutAction() {
+  await signOutUser();
+  revalidatePath("/");
+  redirect("/");
 }
