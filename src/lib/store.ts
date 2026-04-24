@@ -1,34 +1,30 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
+import { hasDatabaseUrl } from "@/lib/db";
+import {
+  createJsonAssignment,
+  createJsonCourse,
+  markJsonBlackboardSync,
+  readJsonStudyHubData,
+  updateJsonAssignmentStatus,
+} from "@/lib/store-json";
+import {
+  createPostgresAssignment,
+  createPostgresCourse,
+  markPostgresBlackboardSync,
+  readPostgresStudyHubData,
+  updatePostgresAssignmentStatus,
+} from "@/lib/store-postgres";
+import type { AssignmentStatus, Priority, StudyHubData } from "@/lib/types";
 
-import type {
-  Assignment,
-  AssignmentStatus,
-  Course,
-  Priority,
-  StudyHubData,
-} from "@/lib/types";
-
-const dataPath = path.join(process.cwd(), "data", "studyhub.json");
-
-async function ensureStore() {
-  const dir = path.dirname(dataPath);
-  await fs.mkdir(dir, { recursive: true });
+function shouldUsePostgres() {
+  return hasDatabaseUrl();
 }
 
 export async function readStudyHubData(): Promise<StudyHubData> {
-  await ensureStore();
-  const raw = await fs.readFile(dataPath, "utf8");
-  return JSON.parse(raw) as StudyHubData;
-}
+  if (shouldUsePostgres()) {
+    return readPostgresStudyHubData();
+  }
 
-async function writeStudyHubData(data: StudyHubData) {
-  await ensureStore();
-  await fs.writeFile(dataPath, JSON.stringify(data, null, 2));
-}
-
-function createId(prefix: string) {
-  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+  return readJsonStudyHubData();
 }
 
 export async function createCourse(input: {
@@ -38,21 +34,11 @@ export async function createCourse(input: {
   cadence: string;
   workload: string;
 }) {
-  const data = await readStudyHubData();
+  if (shouldUsePostgres()) {
+    return createPostgresCourse(input);
+  }
 
-  const course: Course = {
-    id: createId("course"),
-    name: input.name,
-    code: input.code,
-    professor: input.professor,
-    cadence: input.cadence,
-    workload: input.workload,
-    source: "Manual",
-    syncStatus: "Manual course",
-  };
-
-  data.courses.unshift(course);
-  await writeStudyHubData(data);
+  return createJsonCourse(input);
 }
 
 export async function createAssignment(input: {
@@ -63,52 +49,28 @@ export async function createAssignment(input: {
   status: AssignmentStatus;
   description: string;
 }) {
-  const data = await readStudyHubData();
+  if (shouldUsePostgres()) {
+    return createPostgresAssignment(input);
+  }
 
-  const assignment: Assignment = {
-    id: createId("assignment"),
-    title: input.title,
-    courseId: input.courseId,
-    dueAt: input.dueAt,
-    priority: input.priority,
-    status: input.status,
-    description: input.description,
-    source: "Manual",
-  };
-
-  data.assignments.unshift(assignment);
-  await writeStudyHubData(data);
+  return createJsonAssignment(input);
 }
 
 export async function updateAssignmentStatus(
   assignmentId: string,
   status: AssignmentStatus,
 ) {
-  const data = await readStudyHubData();
-  data.assignments = data.assignments.map((assignment) =>
-    assignment.id === assignmentId ? { ...assignment, status } : assignment,
-  );
-  await writeStudyHubData(data);
+  if (shouldUsePostgres()) {
+    return updatePostgresAssignmentStatus(assignmentId, status);
+  }
+
+  return updateJsonAssignmentStatus(assignmentId, status);
 }
 
 export async function markBlackboardSync() {
-  const data = await readStudyHubData();
-  const syncStamp = `Blackboard sync checked ${new Date().toLocaleTimeString(
-    "en-US",
-    {
-      hour: "numeric",
-      minute: "2-digit",
-    },
-  )}`;
+  if (shouldUsePostgres()) {
+    return markPostgresBlackboardSync();
+  }
 
-  data.courses = data.courses.map((course) =>
-    course.source === "Blackboard"
-      ? {
-          ...course,
-          syncStatus: syncStamp,
-        }
-      : course,
-  );
-
-  await writeStudyHubData(data);
+  return markJsonBlackboardSync();
 }
