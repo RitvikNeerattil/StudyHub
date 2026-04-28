@@ -1,6 +1,8 @@
 import { hasDatabaseUrl } from "@/lib/db";
 import {
+  clearJsonLoginAttempt,
   createJsonAssignment,
+  clearJsonCourseworkForUser,
   createJsonCourse,
   createJsonUserRecord,
   deleteJsonSessionRecord,
@@ -8,13 +10,19 @@ import {
   findJsonUserByEmail,
   importJsonBlackboardData,
   markJsonBlackboardSync,
+  readJsonLoginAttempt,
   readJsonStudyHubData,
   readJsonStudyHubDataForUser,
+  saveJsonLoginAttempt,
+  updateJsonBlackboardCredentials,
+  updateJsonGeminiCredentials,
   updateJsonAssignmentStatus,
   upsertJsonSessionRecord,
 } from "@/lib/store-json";
 import {
+  clearPostgresLoginAttempt,
   createPostgresAssignment,
+  clearPostgresCourseworkForUser,
   createPostgresCourse,
   createPostgresUserRecord,
   deletePostgresSessionRecord,
@@ -22,13 +30,20 @@ import {
   findPostgresUserByEmail,
   importPostgresBlackboardData,
   markPostgresBlackboardSync,
+  readPostgresLoginAttempt,
   readPostgresStudyHubData,
+  savePostgresLoginAttempt,
+  updatePostgresBlackboardCredentials,
+  updatePostgresGeminiCredentials,
   updatePostgresAssignmentStatus,
   upsertPostgresSessionRecord,
 } from "@/lib/store-postgres";
-import type { BlackboardImportPayload } from "@/lib/lms";
+import type { BlackboardImportPayload, BlackboardSyncResult } from "@/lib/lms";
 import type {
   AssignmentStatus,
+  BlackboardCredentialUpdate,
+  GeminiCredentialUpdate,
+  LoginAttempt,
   Priority,
   Session,
   StudyHubData,
@@ -36,6 +51,14 @@ import type {
 } from "@/lib/types";
 
 function shouldUsePostgres() {
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.NEXT_PHASE !== "phase-production-build" &&
+    !hasDatabaseUrl()
+  ) {
+    throw new Error("DATABASE_URL must be set in production.");
+  }
+
   return hasDatabaseUrl();
 }
 
@@ -105,12 +128,50 @@ export async function markBlackboardSync(userId: string) {
 export async function importBlackboardData(
   userId: string,
   payload: BlackboardImportPayload,
-) {
+): Promise<BlackboardSyncResult> {
   if (shouldUsePostgres()) {
     return importPostgresBlackboardData(userId, payload);
   }
 
   return importJsonBlackboardData(userId, payload);
+}
+
+export async function clearCourseworkForUser(userId: string) {
+  if (shouldUsePostgres()) {
+    return clearPostgresCourseworkForUser(userId);
+  }
+
+  return clearJsonCourseworkForUser(userId);
+}
+
+export async function replaceBlackboardData(
+  userId: string,
+  payload: BlackboardImportPayload,
+): Promise<BlackboardSyncResult> {
+  await clearCourseworkForUser(userId);
+  return importBlackboardData(userId, payload);
+}
+
+export async function updateBlackboardCredentials(
+  userId: string,
+  input: BlackboardCredentialUpdate,
+) {
+  if (shouldUsePostgres()) {
+    return updatePostgresBlackboardCredentials(userId, input);
+  }
+
+  return updateJsonBlackboardCredentials(userId, input);
+}
+
+export async function updateGeminiCredentials(
+  userId: string,
+  input: GeminiCredentialUpdate,
+) {
+  if (shouldUsePostgres()) {
+    return updatePostgresGeminiCredentials(userId, input);
+  }
+
+  return updateJsonGeminiCredentials(userId, input);
 }
 
 export async function findUserByEmail(email: string) {
@@ -151,4 +212,28 @@ export async function findSessionUser(token: string) {
   }
 
   return findJsonSessionUser(token);
+}
+
+export async function readLoginAttempt(key: string) {
+  if (shouldUsePostgres()) {
+    return readPostgresLoginAttempt(key);
+  }
+
+  return readJsonLoginAttempt(key);
+}
+
+export async function saveLoginAttempt(attempt: LoginAttempt) {
+  if (shouldUsePostgres()) {
+    return savePostgresLoginAttempt(attempt);
+  }
+
+  return saveJsonLoginAttempt(attempt);
+}
+
+export async function clearLoginAttempt(key: string) {
+  if (shouldUsePostgres()) {
+    return clearPostgresLoginAttempt(key);
+  }
+
+  return clearJsonLoginAttempt(key);
 }

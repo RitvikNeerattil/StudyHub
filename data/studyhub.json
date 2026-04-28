@@ -1,80 +1,72 @@
 {
   "courses": [
     {
-      "id": "course-ai",
-      "name": "Artificial Intelligence",
-      "code": "CSCE 580",
-      "professor": "Dr. Calloway",
-      "cadence": "Mon/Wed 2:00 PM",
-      "syncStatus": "Blackboard sync healthy",
-      "workload": "Heavy project week",
+      "id": "user-ssqn4cac-course-_1324635_1",
+      "name": "Mobile Application Development",
+      "code": "CSCE546-001-SPRING-2026",
+      "professor": "",
+      "cadence": "",
+      "workload": "",
+      "syncStatus": "Blackboard sync checked 3:23 AM",
       "source": "Blackboard",
-      "externalId": "bb-ai-580"
+      "externalId": "_1324635_1"
     },
     {
-      "id": "course-os",
-      "name": "Operating Systems",
-      "code": "CSCE 311",
-      "professor": "Dr. Nguyen",
-      "cadence": "Tue/Thu 11:00 AM",
-      "syncStatus": "Blackboard sync healthy",
-      "workload": "Quiz plus lab",
+      "id": "user-ssqn4cac-course-_1324646_1",
+      "name": "Big Data Analytics",
+      "code": "CSCE587-001-SPRING-2026",
+      "professor": "",
+      "cadence": "",
+      "workload": "",
+      "syncStatus": "Blackboard sync checked 3:23 AM",
       "source": "Blackboard",
-      "externalId": "bb-os-311"
+      "externalId": "_1324646_1"
     },
     {
-      "id": "course-se",
-      "name": "Software Engineering",
-      "code": "CSCE 490",
-      "professor": "Prof. Mason",
-      "cadence": "Mon 5:30 PM",
-      "syncStatus": "Manual course",
-      "workload": "Team milestone due",
-      "source": "Manual"
+      "id": "user-ssqn4cac-course-_1328493_1",
+      "name": "Program Design and Development",
+      "code": "ITEC104-J56-SPRING-2026",
+      "professor": "",
+      "cadence": "",
+      "workload": "",
+      "syncStatus": "Blackboard sync checked 3:23 AM",
+      "source": "Blackboard",
+      "externalId": "_1328493_1"
+    },
+    {
+      "id": "user-ssqn4cac-course-_1337988_1",
+      "name": "Introduction to Networking (Merged)",
+      "code": "ITEC245-000-SPRING-2026",
+      "professor": "",
+      "cadence": "",
+      "workload": "",
+      "syncStatus": "Blackboard sync checked 3:23 AM",
+      "source": "Blackboard",
+      "externalId": "_1337988_1"
+    },
+    {
+      "id": "user-ssqn4cac-course-_1328522_1",
+      "name": "Cybersecurity Operations",
+      "code": "ITEC293-001-SPRING-2026",
+      "professor": "",
+      "cadence": "",
+      "workload": "",
+      "syncStatus": "Blackboard sync checked 3:23 AM",
+      "source": "Blackboard",
+      "externalId": "_1328522_1"
     }
   ],
   "assignments": [
     {
-      "id": "assignment-systems",
-      "title": "Distributed Systems checkpoint",
-      "courseId": "course-se",
-      "dueAt": "2026-04-24T18:00:00.000Z",
-      "priority": "High",
-      "status": "Needs review",
-      "source": "Manual",
-      "description": "Finalize implementation notes and prepare the checkpoint write-up."
-    },
-    {
-      "id": "assignment-neural",
-      "title": "Neural search lab report",
-      "courseId": "course-ai",
-      "dueAt": "2026-04-25T23:59:00.000Z",
-      "priority": "High",
-      "status": "Draft ready",
-      "source": "Blackboard",
-      "description": "Polish the results section and attach the benchmark screenshots.",
-      "externalId": "bb-neural-report"
-    },
-    {
-      "id": "assignment-os",
-      "title": "Operating systems quiz 8",
-      "courseId": "course-os",
-      "dueAt": "2026-04-26T16:00:00.000Z",
-      "priority": "Medium",
+      "id": "user-ssqn4cac-assignment-_8726022_1",
+      "title": "Final Exam",
+      "courseId": "user-ssqn4cac-course-_1337988_1",
+      "dueAt": "2026-05-06T03:59:00.000Z",
+      "priority": "Low",
       "status": "Not started",
       "source": "Blackboard",
-      "description": "Review synchronization notes and memory scheduling topics.",
-      "externalId": "bb-os-quiz-8"
-    },
-    {
-      "id": "assignment-retro",
-      "title": "Team sprint retrospective",
-      "courseId": "course-se",
-      "dueAt": "2026-04-27T13:00:00.000Z",
-      "priority": "Low",
-      "status": "Waiting on team",
-      "source": "Manual",
-      "description": "Collect meeting notes and summarize blockers for the retro."
+      "description": "",
+      "externalId": "_8726022_1"
     }
   ]
 }

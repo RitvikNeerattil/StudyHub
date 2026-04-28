@@ -1,6 +1,4 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
-
+import { loadRealBlackboardPayload } from "@/lib/blackboard";
 import type { AssignmentStatus, Priority } from "@/lib/types";
 
 export type BlackboardImportCourse = {
@@ -27,24 +25,26 @@ export type BlackboardImportPayload = {
   assignments: BlackboardImportAssignment[];
 };
 
-const templatePath = path.join(
-  process.cwd(),
-  "data",
-  "blackboard-template.json",
-);
-
-export async function loadMockBlackboardPayload(
-  userName: string,
-): Promise<BlackboardImportPayload> {
-  const raw = await fs.readFile(templatePath, "utf8");
-  const payload = JSON.parse(raw) as BlackboardImportPayload;
-  const firstName = userName.trim().split(" ")[0] || "Student";
-
-  return {
-    courses: payload.courses,
-    assignments: payload.assignments.map((assignment) => ({
-      ...assignment,
-      description: `${assignment.description} Imported for ${firstName}.`,
-    })),
+export type BlackboardSyncResult = {
+  syncedAt: string;
+  courses: {
+    created: number;
+    updated: number;
   };
+  assignments: {
+    created: number;
+    updated: number;
+    skipped: number;
+  };
+};
+
+export type BlackboardLoginCredentials = {
+  username: string;
+  password: string;
+};
+
+export async function loadBlackboardPayload(
+  credentials: BlackboardLoginCredentials,
+): Promise<BlackboardImportPayload> {
+  return loadRealBlackboardPayload(credentials);
 }

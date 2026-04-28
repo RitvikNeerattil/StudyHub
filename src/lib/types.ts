@@ -45,6 +45,11 @@ export type User = {
   email: string;
   passwordHash: string;
   createdAt: string;
+  blackboardUsername?: string;
+  blackboardPasswordEncrypted?: string;
+  blackboardCredentialsUpdatedAt?: string;
+  geminiApiKeyEncrypted?: string;
+  geminiApiKeyUpdatedAt?: string;
 };
 
 export type Session = {
@@ -54,7 +59,26 @@ export type Session = {
   expiresAt: string;
 };
 
+export type LoginAttempt = {
+  key: string;
+  failures: number;
+  lockedUntil?: string;
+  updatedAt: string;
+};
+
 export type AuthStore = {
   users: User[];
   sessions: Session[];
+  loginAttempts?: LoginAttempt[];
+};
+
+export type BlackboardCredentialUpdate = {
+  username: string;
+  passwordEncrypted: string;
+  updatedAt: string;
+};
+
+export type GeminiCredentialUpdate = {
+  apiKeyEncrypted: string;
+  updatedAt: string;
 };

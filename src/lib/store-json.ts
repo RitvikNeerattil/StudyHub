@@ -1,20 +1,32 @@
 import { promises as fs } from "node:fs";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 
 import type {
   AuthStore,
   Assignment,
   AssignmentStatus,
+  BlackboardCredentialUpdate,
   Course,
+  GeminiCredentialUpdate,
+  LoginAttempt,
   Priority,
   Session,
   StudyHubData,
   User,
 } from "@/lib/types";
-import type { BlackboardImportPayload } from "@/lib/lms";
+import type { BlackboardImportPayload, BlackboardSyncResult } from "@/lib/lms";
 
 const dataPath = path.join(process.cwd(), "data", "studyhub.json");
 const authPath = path.join(process.cwd(), "data", "auth.json");
+
+function emptyStudyHubData(): StudyHubData {
+  return { courses: [], assignments: [] };
+}
+
+function emptyAuthStore(): AuthStore {
+  return { users: [], sessions: [], loginAttempts: [] };
+}
 
 async function ensureStore() {
   const dir = path.dirname(dataPath);
@@ -28,14 +40,36 @@ async function ensureAuthStore() {
 
 export async function readJsonStudyHubData(): Promise<StudyHubData> {
   await ensureStore();
-  const raw = await fs.readFile(dataPath, "utf8");
-  return JSON.parse(raw) as StudyHubData;
+
+  try {
+    const raw = await fs.readFile(dataPath, "utf8");
+    return JSON.parse(raw.replace(/^\uFEFF/, "")) as StudyHubData;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+
+    const data = emptyStudyHubData();
+    await writeStudyHubData(data);
+    return data;
+  }
 }
 
 async function readJsonAuthStore(): Promise<AuthStore> {
   await ensureAuthStore();
-  const raw = await fs.readFile(authPath, "utf8");
-  return JSON.parse(raw) as AuthStore;
+
+  try {
+    const raw = await fs.readFile(authPath, "utf8");
+    return JSON.parse(raw.replace(/^\uFEFF/, "")) as AuthStore;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+
+    const data = emptyAuthStore();
+    await writeAuthStore(data);
+    return data;
+  }
 }
 
 async function writeStudyHubData(data: StudyHubData) {
@@ -49,7 +83,7 @@ async function writeAuthStore(data: AuthStore) {
 }
 
 function createId(prefix: string) {
-  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+  return `${prefix}-${randomUUID()}`;
 }
 
 export async function createJsonCourse(input: {
@@ -119,6 +153,18 @@ export async function updateJsonAssignmentStatus(
   await writeStudyHubData(data);
 }
 
+export async function clearJsonCourseworkForUser(userId: string) {
+  const data = await readJsonStudyHubData();
+  const prefix = inputPrefix(userId);
+
+  data.assignments = data.assignments.filter(
+    (assignment) => !assignment.id.startsWith(prefix),
+  );
+  data.courses = data.courses.filter((course) => !course.id.startsWith(prefix));
+
+  await writeStudyHubData(data);
+}
+
 function inputPrefix(userId: string) {
   return `${userId}-`;
 }
@@ -180,6 +226,63 @@ export async function findJsonUserByEmail(email: string) {
   return auth.users.find((user) => user.email === email) ?? null;
 }
 
+export async function updateJsonBlackboardCredentials(
+  userId: string,
+  input: BlackboardCredentialUpdate,
+) {
+  const auth = await readJsonAuthStore();
+  let found = false;
+
+  auth.users = auth.users.map((user) => {
+    if (user.id !== userId) {
+      return user;
+    }
+
+    found = true;
+
+    return {
+      ...user,
+      blackboardUsername: input.username,
+      blackboardPasswordEncrypted: input.passwordEncrypted,
+      blackboardCredentialsUpdatedAt: input.updatedAt,
+    };
+  });
+
+  if (!found) {
+    throw new Error("Could not find the signed-in user.");
+  }
+
+  await writeAuthStore(auth);
+}
+
+export async function updateJsonGeminiCredentials(
+  userId: string,
+  input: GeminiCredentialUpdate,
+) {
+  const auth = await readJsonAuthStore();
+  let found = false;
+
+  auth.users = auth.users.map((user) => {
+    if (user.id !== userId) {
+      return user;
+    }
+
+    found = true;
+
+    return {
+      ...user,
+      geminiApiKeyEncrypted: input.apiKeyEncrypted,
+      geminiApiKeyUpdatedAt: input.updatedAt,
+    };
+  });
+
+  if (!found) {
+    throw new Error("Could not find the signed-in user.");
+  }
+
+  await writeAuthStore(auth);
+}
+
 export async function upsertJsonSessionRecord(session: Session) {
   const auth = await readJsonAuthStore();
   auth.sessions = auth.sessions.filter((item) => item.userId !== session.userId);
@@ -196,6 +299,15 @@ export async function deleteJsonSessionRecord(token: string) {
 export async function findJsonSessionUser(token: string) {
   const auth = await readJsonAuthStore();
   const now = Date.now();
+  const activeSessions = auth.sessions.filter(
+    (item) => new Date(item.expiresAt).getTime() > now,
+  );
+
+  if (activeSessions.length !== auth.sessions.length) {
+    auth.sessions = activeSessions;
+    await writeAuthStore(auth);
+  }
+
   const session = auth.sessions.find(
     (item) => item.token === token && new Date(item.expiresAt).getTime() > now,
   );
@@ -205,6 +317,34 @@ export async function findJsonSessionUser(token: string) {
   }
 
   return auth.users.find((user) => user.id === session.userId) ?? null;
+}
+
+export async function readJsonLoginAttempt(key: string) {
+  const auth = await readJsonAuthStore();
+  return auth.loginAttempts?.find((attempt) => attempt.key === key) ?? null;
+}
+
+export async function saveJsonLoginAttempt(attempt: LoginAttempt) {
+  const auth = await readJsonAuthStore();
+  const attempts = auth.loginAttempts ?? [];
+  const existingIndex = attempts.findIndex((item) => item.key === attempt.key);
+
+  if (existingIndex >= 0) {
+    attempts[existingIndex] = attempt;
+  } else {
+    attempts.push(attempt);
+  }
+
+  auth.loginAttempts = attempts;
+  await writeAuthStore(auth);
+}
+
+export async function clearJsonLoginAttempt(key: string) {
+  const auth = await readJsonAuthStore();
+  auth.loginAttempts = (auth.loginAttempts ?? []).filter(
+    (attempt) => attempt.key !== key,
+  );
+  await writeAuthStore(auth);
 }
 
 export async function markJsonBlackboardSync(userId: string) {
@@ -232,16 +372,29 @@ export async function markJsonBlackboardSync(userId: string) {
 export async function importJsonBlackboardData(
   userId: string,
   payload: BlackboardImportPayload,
-) {
+): Promise<BlackboardSyncResult> {
   const data = await readJsonStudyHubData();
   const prefix = inputPrefix(userId);
-  const syncStamp = `Blackboard sync checked ${new Date().toLocaleTimeString(
+  const syncedAt = new Date();
+  const syncStamp = `Blackboard sync checked ${syncedAt.toLocaleTimeString(
     "en-US",
     {
       hour: "numeric",
       minute: "2-digit",
     },
   )}`;
+  const result: BlackboardSyncResult = {
+    syncedAt: syncedAt.toISOString(),
+    courses: {
+      created: 0,
+      updated: 0,
+    },
+    assignments: {
+      created: 0,
+      updated: 0,
+      skipped: 0,
+    },
+  };
 
   for (const importedCourse of payload.courses) {
     const existingCourseIndex = data.courses.findIndex(
@@ -268,12 +421,19 @@ export async function importJsonBlackboardData(
 
     if (existingCourseIndex >= 0) {
       data.courses[existingCourseIndex] = nextCourse;
+      result.courses.updated += 1;
     } else {
       data.courses.unshift(nextCourse);
+      result.courses.created += 1;
     }
   }
 
   for (const importedAssignment of payload.assignments) {
+    if (importedAssignment.status === "Submitted") {
+      result.assignments.skipped += 1;
+      continue;
+    }
+
     const mappedCourse = data.courses.find(
       (course) =>
         course.id.startsWith(prefix) &&
@@ -282,6 +442,7 @@ export async function importJsonBlackboardData(
     );
 
     if (!mappedCourse) {
+      result.assignments.skipped += 1;
       continue;
     }
 
@@ -309,10 +470,13 @@ export async function importJsonBlackboardData(
 
     if (existingAssignmentIndex >= 0) {
       data.assignments[existingAssignmentIndex] = nextAssignment;
+      result.assignments.updated += 1;
     } else {
       data.assignments.unshift(nextAssignment);
+      result.assignments.created += 1;
     }
   }
 
   await writeStudyHubData(data);
+  return result;
 }
